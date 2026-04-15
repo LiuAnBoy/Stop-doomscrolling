@@ -1,0 +1,72 @@
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  display: flex;
+}
+
+/* Loading overlay */
+#loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font: 14px/1.4 system-ui, sans-serif;
+  background: #111;
+  z-index: 10;
+}
+
+#loading.hidden {
+  display: none;
+}
+
+/* Error overlay */
+#error:not([hidden]) {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font: 14px/1.4 system-ui, sans-serif;
+  background: #111;
+  text-align: center;
+  padding: 1rem;
+  z-index: 10;
+}
+
+/* Attention video — hidden in IDLE, left half in TRIGGERED */
+#attention {
+  width: 0;
+  height: 100%;
+  overflow: hidden;
+  flex-shrink: 0;
+  object-fit: cover;
+  transition: width 200ms ease;
+  background: #000;
+}
+
+/* Camera preview — fills remaining space, mirrored for display */
+#camera {
+  flex: 1;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+/* TRIGGERED state: attention fills left half */
+body.triggered #attention {
+  width: 50%;
+}
