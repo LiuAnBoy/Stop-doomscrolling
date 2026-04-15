@@ -1,103 +1,103 @@
 # StopScroll
 
-> 鏡頭偵測到你拿起手機，就在電腦螢幕上播放一段提醒影片。一個阻止自己滑手機的小玩具。
+> When the webcam catches you picking up your phone, your computer plays a video to nag you back. A tiny toy to stop yourself from doomscrolling.
 
-## 它在幹嘛
+## What it does
 
-打開後鏡頭一直盯著你。當畫面中出現手機超過 1 秒，App 會自動播放一段 attention-grabbing 的影片提醒你「欸別滑了」。手機從畫面消失 0.5 秒後，影片自動停止、回到待機狀態。
+Once running, the webcam keeps an eye on you. If a phone shows up in frame for more than 1 second, the app auto-plays an attention-grabbing video as a reminder to *put it down*. As soon as the phone leaves frame for 0.5 seconds, the video stops and the app returns to standby.
 
-底層是 [MediaPipe Tasks Vision](https://developers.google.com/mediapipe/solutions/vision/object_detector) 的 EfficientDet-Lite0 物件偵測模型，本機跑、不傳雲端。
+Powered by [MediaPipe Tasks Vision](https://developers.google.com/mediapipe/solutions/vision/object_detector) running the EfficientDet-Lite0 object detection model — entirely on-device, nothing leaves your machine.
 
 ## Features
 
-- 即時鏡頭偵測手機（CPU inference，不需要 GPU）
-- 偵測有 **dwell time + jitter tolerance**，不會因為畫面晃一下就誤觸發
-- 純前端 ML，影像不離開機器
-- Tauri 2 打包成原生 dmg / exe，比 Electron 輕
+- Real-time phone detection from your webcam (CPU inference, no GPU required)
+- **Dwell time + jitter tolerance** built into the detection — won't false-trigger on a single noisy frame
+- 100% on-device ML — your video feed never leaves your computer
+- Packaged with Tauri 2 as a native dmg / exe — much lighter than Electron
 
-## 下載
+## Download
 
-到 [Releases](../../releases) 拿對應平台的安裝檔：
+Grab the installer for your platform from [Releases](../../releases):
 
-| 平台 | 檔案 |
+| Platform | File |
 |---|---|
 | macOS Apple Silicon | `StopScroll_x.x.x_aarch64.dmg` |
 | macOS Intel | `StopScroll_x.x.x_x64.dmg` |
 | Windows | `StopScroll_x.x.x_x64-setup.exe` |
 
-### ⚠️ 未簽章說明
+### ⚠️ Unsigned build notice
 
-開源小玩具沒花錢買簽章憑證，第一次開啟會被系統擋：
+This is an open-source toy and I haven't paid for code signing certificates, so the OS will block the first launch:
 
-**macOS** — 跳「無法驗證開發者」時：
-- 方法一：右鍵點 App → 「打開」→ 確認
-- 方法二：終端機跑 `xattr -cr /Applications/StopScroll.app`
+**macOS** — when you see *"cannot verify the developer"*:
+- Option 1: right-click the app → **Open** → confirm
+- Option 2: in Terminal, run `xattr -cr /Applications/StopScroll.app`
 
-**Windows** — SmartScreen 跳「Windows 已保護你的電腦」時：
-- 點「**其他資訊**」→「**仍要執行**」
+**Windows** — when SmartScreen shows *"Windows protected your PC"*:
+- Click **More info** → **Run anyway**
 
-## 本機開發
+## Local development
 
-需要：[Node.js 20+](https://nodejs.org/)、[pnpm](https://pnpm.io/)、[Rust](https://www.rust-lang.org/tools/install) + [Tauri prerequisites](https://tauri.app/start/prerequisites/)
+Requirements: [Node.js 20+](https://nodejs.org/), [pnpm](https://pnpm.io/), [Rust](https://www.rust-lang.org/tools/install) + [Tauri prerequisites](https://tauri.app/start/prerequisites/)
 
 ```bash
-pnpm install        # postinstall 會自動下載 MediaPipe model 與 wasm
-pnpm tauri dev      # 開發模式
-pnpm tauri build    # 打包生產版
-pnpm test           # 跑 state machine 單元測試
+pnpm install        # postinstall auto-fetches MediaPipe model + wasm
+pnpm tauri dev      # dev mode
+pnpm tauri build    # production build
+pnpm test           # state machine unit tests
 ```
 
-第一次 `pnpm install` 會自動執行 `scripts/download-assets.mjs`，從 Google CDN 抓 MediaPipe 模型（13MB），並把 wasm 從 `node_modules` 複製到 `public/wasm/`。
+The first `pnpm install` runs `scripts/download-assets.mjs`, which downloads the MediaPipe model (13MB) from Google's CDN and copies the wasm files from `node_modules` into `public/wasm/`.
 
-## 專案結構
+## Project structure
 
 ```
 src/
 ├── main.ts            # entry point
 ├── ui.ts              # UI orchestration
-├── camera.ts          # getUserMedia 包裝
-├── detector.ts        # MediaPipe ObjectDetector 封裝
-├── stateMachine.ts    # IDLE ⇄ TRIGGERED 狀態機（含 dwell / jitter 邏輯）
+├── camera.ts          # getUserMedia wrapper
+├── detector.ts        # MediaPipe ObjectDetector wrapper
+├── stateMachine.ts    # IDLE ⇄ TRIGGERED state machine (dwell + jitter logic)
 └── stateMachine.test.ts
 
 src-tauri/
-├── src/               # Rust shell（minimal）
+├── src/               # Rust shell (minimal)
 ├── resources/
-│   └── video.mp4      # bundle 進 app 的提醒影片
+│   └── video.mp4      # the reminder video bundled into the app
 └── tauri.conf.json
 
 scripts/
-└── download-assets.mjs  # 拉 MediaPipe wasm + model
+└── download-assets.mjs  # fetches MediaPipe wasm + model
 
 .github/workflows/
-└── release.yml          # tag v* 觸發，產 macOS dmg + Windows exe
+└── release.yml          # triggered on tag v*, builds macOS dmg + Windows exe
 ```
 
-## 狀態機
+## State machine
 
 ```
-              phone 連續出現 1000ms
+              phone present for 1000ms
    ┌─────┐ ──────────────────────► ┌───────────┐
    │IDLE │                         │ TRIGGERED │
    │     │ ◄────────────────────── │           │
-   └─────┘   phone 連續消失 500ms  └───────────┘
+   └─────┘   phone absent for 500ms └───────────┘
 ```
 
-短暫的偵測中斷（≤ 500ms）會被視為仍存在，避免抖動誤判。
+Brief detection gaps (≤ 500ms) are treated as "still present" to avoid jitter-induced false negatives.
 
-## 發版
+## Releasing
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-GitHub Actions 會自動 matrix build macOS (Intel + Apple Silicon) + Windows，產出未簽章的 dmg / exe，建立成 draft release，到 GitHub Releases 頁面手動 publish 即可。
+GitHub Actions will matrix-build macOS (Intel + Apple Silicon) and Windows, produce unsigned dmg / exe artifacts, and create a draft release. Just hit publish on the GitHub Releases page when you're ready.
 
-## Tech Stack
+## Tech stack
 
 - **Frontend**: TypeScript + Vite
-- **ML**: [@mediapipe/tasks-vision](https://www.npmjs.com/package/@mediapipe/tasks-vision)（EfficientDet-Lite0）
+- **ML**: [@mediapipe/tasks-vision](https://www.npmjs.com/package/@mediapipe/tasks-vision) (EfficientDet-Lite0)
 - **Shell**: [Tauri 2](https://tauri.app/)
 - **Test**: [Vitest](https://vitest.dev/)
 
